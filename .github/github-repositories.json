@@ -1,0 +1,10 @@
+{
+    "ohmyzsh\/ohmyzsh": {
+        "src": "github.com\/ohmyzsh\/ohmyzsh.git",
+        "dst": "cnb.cool\/thedf.cc\/ohmyzsh.git"
+    },
+    "romkatv\/powerlevel10k": {
+        "src": "github.com\/romkatv\/powerlevel10k.git",
+        "dst": "cnb.cool\/thedf.cc\/powerlevel10k.git"
+    }
+}
