@@ -56,7 +56,8 @@ jobs:
           
           cd "$temp_dir"
           echo "Pushing to $dst"
-          if ! git push --mirror "$dst_url"; then
+          git remote add cnb "$dst_url"
+          if ! git push cnb; then
             echo "Failed to push to $dst"
             cd -
             rm -rf "$temp_dir"
