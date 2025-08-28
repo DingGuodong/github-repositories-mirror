@@ -1,0 +1,74 @@
+name: Sync GitHub Repositories
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  sync-repositories:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout current repository
+      uses: actions/checkout@v4
+      
+    - name: Parse repositories configuration
+      id: parse-config
+      run: |
+        config_file="${{ github.workspace }}/.github/github-repositories.json"
+        if [ ! -f "$config_file" ]; then
+          echo "Error: Configuration file not found"
+          exit 1
+        fi
+        
+        repos=$(jq -r 'to_entries | map(.key + "|" + .value.src + "|" + .value.dst) | .[]' "$config_file")
+        echo "repos<<EOF" >> $GITHUB_OUTPUT
+        echo "$repos" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Setup Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+    - name: Sync repositories
+      run: |
+        sudo apt-get update && sudo apt-get install -y jq git-lfs
+        
+        echo "${{ steps.parse-config.outputs.repos }}" | while IFS="|" read -r repo_key src dst; do
+          echo "Processing: $repo_key"
+          echo "Source: $src"
+          echo "Destination: $dst"
+          
+          temp_dir=$(mktemp -d)
+          echo "Using temp directory: $temp_dir"
+          
+          src_url="https://$src"
+          dst_url="https://${{ secrets.DESTINATION_USERNAME }}:${{ secrets.DESTINATION_PASSWORD }}@${dst#https://}"
+          
+          echo "Cloning from $src_url"
+          if ! git clone --mirror "$src_url" "$temp_dir"; then
+            echo "Failed to clone $src_url"
+            rm -rf "$temp_dir"
+            continue
+          fi
+          
+          cd "$temp_dir"
+          echo "Pushing to $dst"
+          if ! git push --mirror "$dst_url"; then
+            echo "Failed to push to $dst"
+            cd -
+            rm -rf "$temp_dir"
+            continue
+          fi
+          
+          cd -
+          rm -rf "$temp_dir"
+          
+          echo "Successfully synced $repo_key"
+          echo "----------------------------------------"
+        done
+      env:
+        DESTINATION_USERNAME: ${{ secrets.CNB_GIT_USERNAME }}
+        DESTINATION_PASSWORD: ${{ secrets.CNB_GIT_PASSWORD }}
